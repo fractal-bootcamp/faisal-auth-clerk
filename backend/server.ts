@@ -1,7 +1,7 @@
 import express, { NextFunction, Request, Response } from "express"
 import dotenv from "dotenv"
 import cors from "cors"
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from '@prisma/client';
 import { clerkMiddleware, clerkClient, getAuth, requireAuth } from "@clerk/express";
 
 dotenv.config()
