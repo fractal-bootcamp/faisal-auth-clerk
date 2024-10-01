@@ -1,32 +1,69 @@
-import express from "express"
+import express, { NextFunction, Request, Response } from "express"
 import dotenv from "dotenv"
 import cors from "cors"
+import { PrismaClient } from "@prisma/client";
 import { clerkMiddleware, clerkClient, getAuth, requireAuth } from "@clerk/express";
 
 dotenv.config()
 
 const app = express()
 const PORT = 3000
+const prisma = new PrismaClient()
 
-app.use(cors({ origin: "http://localhost:5174" }))
-app.use(express())
+app.use(cors({ origin: true }))
 app.use(express.json())
 app.use(clerkMiddleware())
 
-app.get("/", (_req, res) => {
+const identifyUserMiddleware = async (req: Request, res: Response, next: NextFunction) => {
+    const { userId } = getAuth(req)
+    if (!userId) {
+        return next() // Do nothing if there is no auth user
+    }
+
+    try {
+        const clerkUser = await clerkClient.users.getUser(userId)
+
+        let user = await prisma.user.findUnique({
+            where: { clerkId: userId }
+        })
+
+        if (!user) {
+            user = await prisma.user.create({
+                data: {
+                    name: clerkUser.firstName || "Unknown.",
+                    secretProprietaryInformation: "Default secret info.",
+                    clerkId: userId
+                }
+            })
+        }
+        req.user = user
+        next()
+
+    } catch (error) {
+        console.error("Error in identifyUserMiddleware:", error);
+        res.status(500).json({ message: "Internal server error." })
+    }
+}
+
+app.get("/", (_req: Request, res: Response) => {
     res.send("I am alive")
 })
 
-app.get("/protected", requireAuth({ signInUrl: "/sign-in" }), async (req, res) => {
+app.get("/protected", requireAuth({ signInUrl: "/sign-in" }), async (req: Request, res: Response) => {
     const { userId } = getAuth(req)
-    const user = await clerkClient.users.getUser(userId)
+
+    if (userId) {
+        const user = await clerkClient.users.getUser(userId)
+        res.json({ user })
+    } else {
+        res.json({ message: "You are not logged in." })
+    }
 })
 
-app.get("/sign-in", (req, res) => {
-
+app.get("/sign-in", (_req: Request, res: Response) => {
     res.render("sign-in")
 })
 
 app.listen(PORT, () => {
-    console.log(`Server running on port: http://localhost:${PORT}`);
+    console.log(`Server running on port: http://localhost:${PORT}`)
 })
