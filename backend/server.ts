@@ -10,10 +10,6 @@ const app = express()
 const PORT = 3000
 const prisma = new PrismaClient()
 
-app.use(cors({ origin: true }))
-app.use(express.json())
-app.use(clerkMiddleware())
-
 const identifyUserMiddleware = async (req: Request, res: Response, next: NextFunction) => {
     const { userId } = getAuth(req)
     if (!userId) {
@@ -31,7 +27,6 @@ const identifyUserMiddleware = async (req: Request, res: Response, next: NextFun
             user = await prisma.user.create({
                 data: {
                     name: clerkUser.firstName || "Unknown.",
-                    secretProprietaryInformation: "Default secret info.",
                     clerkId: userId
                 }
             })
@@ -44,6 +39,11 @@ const identifyUserMiddleware = async (req: Request, res: Response, next: NextFun
         res.status(500).json({ message: "Internal server error." })
     }
 }
+
+app.use(cors({ origin: true }))
+app.use(express.json())
+app.use(clerkMiddleware())
+app.use(identifyUserMiddleware)
 
 app.get("/", (_req: Request, res: Response) => {
     res.send("I am alive")
